@@ -5,14 +5,16 @@ import (
 	"io/ioutil"
 	"log"
 	"os/exec"
+	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"sync"
 )
 
-func RunCMD(command string) (string, error) {
+func RunCMD(ip string, count int) (string, error) {
 	//in := bytes.NewBuffer(nil)
-	cmd := exec.Command("/bin/sh", "-c", command)
+	cmd := exec.Command("/bin/sh", "-c", "ping -c "+strconv.Itoa(count)+" "+ip)
 	//cmd.Stdin = in
 	//in.WriteString(command + "\n")
 	stdout, err := cmd.StdoutPipe()
@@ -37,27 +39,35 @@ func RunCMD(command string) (string, error) {
 		//log.Fatal(err)
 	}
 
+	<-maxGoChan
+	reg := regexp.MustCompile("(\\d+)% packet loss")
+	result := reg.Find(opBytes)
+	fmt.Println(string(result[:len(result)-13]))
+
+	lossPercent := result[:len(result)-13]
+	ipLossPercentMap[ip], _ = strconv.Atoi(string(lossPercent))
 	return string(opBytes), nil
 }
 
 func ping(ip string) (string, error) {
-	cmd := "ping -c 2 " + ip
-	return RunCMD(cmd)
+	return RunCMD(ip, 100)
 }
 
 var ips []string
 var maxGoChan chan int
+var ipLossPercentMap map[string]int
 
 func main() {
+	ipLossPercentMap = make(map[string]int)
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	baseIp := "192.168.188."
+	baseIp := "104.18.0."
 
-	for i := 1; i < 8; i++ {
+	for i := 1; i < 254; i++ {
 		ips = append(ips, baseIp+strconv.Itoa(i))
 	}
 
-	maxGoChan = make(chan int, 5)
+	maxGoChan = make(chan int, 10)
 	ch := make(chan string, len(ips))
 
 	wg := sync.WaitGroup{}
@@ -84,6 +94,21 @@ func main() {
 	}
 
 	wg.Wait()
+
+	type kv struct {
+		Key   string
+		Value int
+	}
+	var ss []kv
+	for k, v := range ipLossPercentMap {
+		ss = append(ss, kv{k, v})
+	}
+
+	sort.Slice(ss, func(i, j int) bool {
+		return ss[i].Value < ss[j].Value
+	})
+	fmt.Println(ss[:5])
+	//fmt.Println(ipLossPercentMap)
 	//fmt.Println(len(ch))
 	/*for i := 0; i < len(ips); i++ {
 		fmt.Println(<-ch)
