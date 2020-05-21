@@ -1,10 +1,8 @@
 # ping工具
-## Gin v1. stable
 
-- [x] Zero allocation router.
-- [b] Still the fastest http router and framework. From routing to writing.
-- [x] Complete suite of unit tests
+修改配置文件config-example.yaml名称为config.yaml
 
--  [] Battle tested
-- [] API frozen, new releases will not break your code.
+若需更新dns，请更改modifyEnable为true，并更改各配置项为自己的数据
+
+
 

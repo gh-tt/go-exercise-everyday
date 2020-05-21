@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/spf13/viper"
 	"io/ioutil"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -11,11 +14,6 @@ import (
 	"sort"
 	"strconv"
 	"sync"
-)
-
-const (
-	maxGOROUTINE = 255
-	maxPingNum   = 100
 )
 
 var (
@@ -31,14 +29,25 @@ type PingStat struct {
 }
 
 func main() {
-	baseIp := "104.18.0."
+	viper.AddConfigPath("./")
+	viper.AddConfigPath("/data/gotools/cf-ping/")
+	//viper.AddConfigPath("/data/go/go-exercise-everyday/ping")
+	viper.SetConfigType("yaml")
+	viper.SetConfigName("config")
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	baseIp := viper.GetString("baseIp")
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	for i := 1; i < 255; i++ {
 		ips = append(ips, baseIp+strconv.Itoa(i))
 	}
 
-	maxGoChan = make(chan int, maxGOROUTINE)
+	maxGoRoutine := viper.GetInt("maxGoRoutine")
+	maxGoChan = make(chan int, maxGoRoutine)
 	ch := make(chan string, len(ips))
 
 	wg := sync.WaitGroup{}
@@ -50,12 +59,14 @@ func main() {
 		wg.Done()
 	}()
 
+	maxPingCount := viper.GetInt("maxPingCount")
+
 	for i := 0; i < len(ips); i++ {
 
 		maxGoChan <- 1
 
 		go func(i int) {
-			pingRe, _ := ping(ips[i])
+			pingRe, _ := ping(ips[i], maxPingCount)
 			if pingRe == "" {
 				fmt.Println("ping fail")
 			}
@@ -91,15 +102,39 @@ func main() {
 		betterIp = betterIp[:5]
 	}
 	write(betterIp)
-	//fmt.Println(ipLossPercentMap)
-	//fmt.Println(len(ch))
-	/*for i := 0; i < len(ips); i++ {
-		fmt.Println(<-ch)
-	}*/
+	modifyDns(betterIp)
+}
+
+func modifyDns(betterIp []PingStat) {
+	if !viper.GetBool("dns.modifyEnable") {
+		fmt.Println("do not need modify dns")
+		return
+	}
+
+	if len(betterIp) > 0 {
+		ip := betterIp[0].Ip
+
+		data := make(url.Values)
+		data["login_token"] = []string{viper.GetString("dns.dnspodToken")}
+		data["domain"] = []string{viper.GetString("dns.domain")}
+		data["sub_domain"] = []string{viper.GetString("dns.subDomain")}
+		data["record_id"] = []string{viper.GetString("dns.recordId")}
+		data["record_type"] = []string{viper.GetString("dns.recordType")}
+		data["record_line"] = []string{viper.GetString("dns.recordLine")}
+		data["value"] = []string{ip}
+
+		if betterIp[0].Loss <= viper.GetInt("dns.lossLimit") && betterIp[0].Rtt <= viper.GetFloat64("dns.rttLimit") {
+			_, _ = http.PostForm("https://dnsapi.cn/Record.Modify", data)
+			fmt.Println("modifyDns success")
+		} else {
+			fmt.Println("ip 不符合要求")
+		}
+
+	}
 }
 
 func write(betteIp []PingStat) {
-	txt, _ := os.OpenFile("ping.txt", os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+	txt, _ := os.OpenFile("/data/gotools/cf-ping/ping.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModeAppend)
 	defer txt.Close()
 
 	str := fmt.Sprintln(betteIp)
@@ -109,8 +144,8 @@ func write(betteIp []PingStat) {
 	}
 }
 
-func ping(ip string) (string, error) {
-	return RunCMD(ip, maxPingNum)
+func ping(ip string, count int) (string, error) {
+	return RunCMD(ip, count)
 }
 
 func RunCMD(ip string, count int) (string, error) {

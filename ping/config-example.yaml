@@ -1,0 +1,27 @@
+#基础ip 示例104.18.0.
+baseIp: 104.18.0.
+#最大协程数，防止开启过多协程影响性能
+maxGoRoutine: 255
+#ping次数
+maxPingCount: 100
+
+#修改dnspod所需配置
+dns:
+  #是否需要修改dns，bool类型
+  modifyEnable: true
+  #丢包限制,比如小于等于0
+  lossLimit: 0
+  #延迟限制，比如小于等于160ms
+  rttLimit: 160
+  #域名，必需项
+  domain: example.com
+  #dnspod令牌，必需项
+  dnspodToken: 123456,bbcc6bb8cfec9c157e9e11bdd42cdc5b
+  #主机记录, 如 www
+  subDomain: www
+  #记录ID，必需项
+  recordId: 619385918
+  #记录类型，比如：A，必需项
+  recordType: A
+  #记录线路，比如：默认，必需项
+  recordLine: 电信
