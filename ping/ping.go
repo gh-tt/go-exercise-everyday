@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,7 +14,9 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -39,12 +42,10 @@ func main() {
 		panic(err)
 	}
 
-	baseIp := viper.GetString("baseIp")
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	for i := 1; i < 255; i++ {
-		ips = append(ips, baseIp+strconv.Itoa(i))
-	}
+	ipFileDir := viper.GetString("ipFileDir")
+	ips = readIp(ipFileDir)
 
 	maxGoRoutine := viper.GetInt("maxGoRoutine")
 	maxGoChan = make(chan int, maxGoRoutine)
@@ -190,4 +191,36 @@ func RunCMD(ip string, count int) (string, error) {
 	}
 
 	return string(opBytes), nil
+}
+
+func readIp(ipFileDir string) []string {
+	buf, err := ioutil.ReadFile(ipFileDir)
+	if err != nil {
+		fmt.Println("read ip file err", err)
+		panic(err)
+	}
+
+	ips := strings.Split(string(buf), "\n")
+
+	ips = ips[:len(ips)-1]
+
+	ipList := make([]string, 0)
+
+	count := viper.GetInt("selectCountEveryIp")
+	if count == 0 || count > 255 {
+		panic("每个ip段选择的ip数量,不能为0且小于等于255")
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	for _, v := range ips {
+		ip := strings.Split(v, ".")
+		for i := 0; i < count; i++ {
+			num := rand.Intn(255)
+			if num != 0 {
+				ipList = append(ipList, fmt.Sprintf("%s.%s.%s.%v", ip[0], ip[1], ip[2], num))
+			}
+		}
+	}
+
+	return ipList
 }

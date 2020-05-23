@@ -3,17 +3,18 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
-var maxGoChan = make(chan int, 500)
+var maxGoChan = make(chan int, 200)
 
 func main() {
-
 	ips := regexpIp()
 	ch := make(chan int, len(ips))
 
@@ -45,6 +46,24 @@ func main() {
 	wg.Wait()
 }
 
+func readIp() []string {
+	buf, err := ioutil.ReadFile("D:\\www\\go-exercise-everyday\\read\\sjc-ip.txt")
+	if err != nil {
+		fmt.Println("read file err", err)
+		panic(err)
+	}
+
+	ips := strings.Split(string(buf), "\n")
+
+	fmt.Println(ips[0])
+	s := strings.Split(ips[0], ".")
+	fmt.Println(s, len(s))
+	s1 := strings.TrimRight(ips[0], ".")
+	fmt.Println(s1)
+
+	return ips[:len(ips)-1]
+}
+
 func httpGet(url string) bool {
 	resp, err := http.Get(url)
 
@@ -66,7 +85,7 @@ func httpGet(url string) bool {
 }
 
 func write(ip string) {
-	txt, _ := os.OpenFile("D:\\www\\go-exercise-everyday\\read\\sjc-ip.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModeAppend)
+	txt, _ := os.OpenFile("D:\\www\\go-exercise-everyday\\read\\sjc-ip2.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModeAppend)
 	defer txt.Close()
 	txt.WriteString(ip + "\n")
 }
@@ -84,5 +103,27 @@ func regexpIp() []string {
 		panic(err)
 	}
 	ips := reg.FindAllString(string(buf), -1)
+	return ips
+}
+
+func readIp2(ipFileDir string) []string {
+	buf, err := ioutil.ReadFile(ipFileDir)
+	if err != nil {
+		fmt.Println("read file err", err)
+		panic(err)
+	}
+
+	ips := strings.Split(string(buf), "\n")
+
+	//ips = ips[:len(ips)-1]
+	fmt.Println(ips)
+	tmp := make([]string, 10)
+	ip := strings.Split(ips[0], ".")
+	for i := 0; i < 10; i++ {
+		rand.Seed(time.Now().UnixNano())
+		num := rand.Intn(254)
+		tmp = append(tmp, fmt.Sprintf("%s.%s.%s.%v", ip[0], ip[1], ip[2], num))
+	}
+	fmt.Println(tmp)
 	return ips
 }
