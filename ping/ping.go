@@ -23,6 +23,7 @@ var (
 	ips           []string
 	maxGoChan     chan int
 	pingStatSlice []PingStat
+	mu            sync.Mutex
 )
 
 type PingStat struct {
@@ -55,7 +56,7 @@ func main() {
 	wg.Add(1)
 	go func() {
 		for i := 0; i < len(ips); i++ {
-			fmt.Println(<-ch)
+			<-ch
 		}
 		wg.Done()
 	}()
@@ -96,7 +97,7 @@ func main() {
 	sort.Slice(betterIp, func(i, j int) bool {
 		return betterIp[i].Rtt < betterIp[j].Rtt
 	})
-	fmt.Println(pingStatSlice)
+	//fmt.Println(pingStatSlice)
 	fmt.Println("--------------------------------------------------")
 	fmt.Println(betterIp)
 	if len(betterIp) > 5 {
@@ -187,7 +188,9 @@ func RunCMD(ip string, count int) (string, error) {
 	res2 := reg2.FindSubmatch(opBytes)
 	if res2 != nil {
 		rtt, _ := strconv.ParseFloat(string(res2[1]), 64)
+		mu.Lock()
 		pingStatSlice = append(pingStatSlice, PingStat{ip, pLp, rtt})
+		mu.Unlock()
 	}
 
 	return string(opBytes), nil
