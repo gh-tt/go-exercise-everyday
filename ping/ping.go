@@ -138,8 +138,8 @@ func modifyDns(betterIp []PingStat) {
 func write(betteIp []PingStat) {
 	txt, _ := os.OpenFile("/data/gotools/cf-ping/ping.txt", os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModeAppend)
 	defer txt.Close()
-
-	str := fmt.Sprintln(betteIp)
+	t := time.Now()
+	str := fmt.Sprintln(betteIp, "   ---   ", t.Format("2006-01-02 15:04:05"))
 	n, err := txt.WriteString(str)
 	if n != len(str) {
 		panic(err)
