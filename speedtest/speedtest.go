@@ -9,6 +9,9 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,18 +37,28 @@ type SpeedStat struct {
 func main() {
 	t := time.Now()
 	viper.AddConfigPath("D:\\www\\go-exercise-everyday\\speedtest")
+	viper.AddConfigPath("D:\\go-project\\go-exercise-everyday\\speedtest")
 	viper.SetConfigType("yaml")
 	viper.SetConfigName("config")
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
 	}
-
+	url := viper.GetString("downloadUrl")
+	port := viper.GetString("downloadPort")
 	ipFileDir := viper.GetString("ipFileDir")
-	ips = readIp(ipFileDir)
-	url := "https://storage.idx0.workers.dev/Images/public-notion-06b4a73f-0d4e-4b8f-b273-77becf84a0b3.png"
-	port := "443"
+
 	downloadCount := viper.GetInt("maxDownloadCount")
+	minSpeed := viper.GetFloat64("minSpeed")
+	ips = readIp(ipFileDir)
+	if len(ips) < 1 {
+		return
+	}
+	timeout := setTimeout(url, ips[0], port, minSpeed) * downloadCount
+	if timeout > 180 {
+		timeout = 180
+	}
+	fmt.Println("set timeout :", timeout)
 
 	maxGoRoutine := viper.GetInt("maxGoRoutine")
 	maxGoChan = make(chan int, maxGoRoutine)
@@ -53,14 +66,31 @@ func main() {
 		maxGoChan <- 1
 		wg.Add(1)
 		fmt.Println("loop i is", i)
-		go Loop(downloadCount, url, ips[i], port)
+		go Loop(downloadCount, url, ips[i], port, timeout)
 		fmt.Println("main i", i)
 		fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 	}
 	wg.Wait()
 	resSort()
+	modifyDnsAndWrite()
 	fmt.Println(time.Since(t))
 }
+
+func setTimeout(url, ip, port string, minSpeed float64) int {
+	if minSpeed < 1 {
+		panic("最小下载速度必须设置大于等于1MB/s")
+	}
+	ctx, _ := context.WithTimeout(context.Background(), 100*time.Second)
+	remoteAddr := ip + ":" + port
+	length := getRespDataSize(ctx, url, remoteAddr)
+	size, _, _ := generateData(length, 1*time.Second)
+	if size == 0 {
+		panic("获取待测试下载文件大小失败，请重试")
+	}
+	res := int(size/minSpeed) + 1
+	return res
+}
+
 func resSort() {
 	sort.Slice(speedStatSlice, func(i, j int) bool {
 		return speedStatSlice[i].Speed > speedStatSlice[j].Speed
@@ -102,7 +132,7 @@ func readIp(ipFileDir string) []string {
 	return ipList
 }
 
-func Loop(count int, url, ip, port string) {
+func Loop(count int, url, ip, port string, timeout int) {
 	defer func() {
 		<-maxGoChan
 		wg.Done()
@@ -141,7 +171,7 @@ func Loop(count int, url, ip, port string) {
 		dur = <-timeChan
 		fmt.Println(l, dur, "size and dur")
 		fmt.Println("-----------------------------------------------")
-	case <-time.After(5 * time.Second):
+	case <-time.After(time.Duration(timeout) * time.Second):
 		fmt.Println("time out")
 		cancel()
 		return
@@ -228,4 +258,55 @@ func httpGet(ctx context.Context, url, remoteAddr string) (*http.Response, error
 	}
 	req.Header.Set("User-Agent", "go-http")
 	return client.Do(req)
+}
+
+func modifyDnsAndWrite() {
+	if len(speedStatSlice) == 0 {
+		return
+	}
+	if !viper.GetBool("dns.modifyEnable") {
+		fmt.Println("do not need modify dns")
+		return
+	}
+	if len(speedStatSlice) > 0 {
+		ip := speedStatSlice[0].Ip
+
+		data := make(url.Values)
+		data["login_token"] = []string{viper.GetString("dns.dnspodToken")}
+		data["domain"] = []string{viper.GetString("dns.domain")}
+		data["sub_domain"] = []string{viper.GetString("dns.subDomain")}
+		data["record_id"] = []string{viper.GetString("dns.recordId")}
+		data["record_type"] = []string{viper.GetString("dns.recordType")}
+		data["record_line"] = []string{viper.GetString("dns.recordLine")}
+		data["value"] = []string{ip}
+
+		if speedStatSlice[0].Speed >= viper.GetFloat64("dns.speedLimit") {
+			_, _ = http.PostForm("https://dnsapi.cn/Record.Modify", data)
+			fmt.Println("modifyDns success")
+		} else {
+			fmt.Println("ip 不符合要求")
+		}
+	}
+	betterIp := speedStatSlice
+	if len(betterIp) > 5 {
+		betterIp = betterIp[:5]
+	}
+	write(betterIp)
+}
+
+func write(betteIp []SpeedStat) {
+	osType := runtime.GOOS
+	if osType == "windows" {
+		fmt.Println("windows不需要写日志")
+		return
+	}
+	path := "/data/gotools/speedtest/result.txt"
+	txt, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModeAppend)
+	defer txt.Close()
+	t := time.Now()
+	str := fmt.Sprintln(betteIp, "   ---   ", t.Format("2006-01-02 15:04:05"))
+	n, err := txt.WriteString(str)
+	if n != len(str) {
+		panic(err)
+	}
 }

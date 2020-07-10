@@ -8,5 +8,6 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/spf13/viper v1.7.0
 	golang.org/x/text v0.3.2
+	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 )

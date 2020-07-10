@@ -1,20 +1,24 @@
-#存放待ping的ip 文件地址 绝对路径.
-ipFileDir: D:\www\go-exercise-everyday\speedtest\sjc-ip.txt
+#存放待测速的ip 文件地址 绝对路径.
+ipFileDir: D:\go-project\go-exercise-everyday\speedtest\sjc-ip.txt
 #每个ip段选择的ip数量 如从111.111.111.X这个ip段中随机选择10个ip，该项必须，不能为0且小于等于255
-selectCountEveryIp: 10
-#最大协程数，防止开启过多协程影响性能
-maxGoRoutine: 20
-#download次数
-maxDownloadCount: 1
+selectCountEveryIp: 3
+#最大协程数，防止开启过多协程影响测试结果，100M宽带最好设置最大不超过10个
+maxGoRoutine: 10
+#最小期望速度（单位MB/s），该项为设置请求超时时间所需，目前该项必须设置为大于等于1的浮点数
+minSpeed: 1
+#对测试资源循环下载次数，越大可能测试结果越准确，过大影响测试时间，最好设置为10一下的数字
+maxDownloadCount: 3
+#测试资源url，该资源缓存在cf上，几M到十几M资源最好
+downloadUrl: https://storage.idx0.workers.dev/Images/public-notion-06b4a73f-0d4e-4b8f-b273-77becf84a0b3.png
+#测试资源下载端口,https链接该项设置为443，其他根据实际设置为80或其他
+downloadPort: 443
 
 #修改dnspod所需配置
 dns:
   #是否需要修改dns，bool类型
   modifyEnable: true
-  #丢包限制,比如小于等于0
-  lossLimit: 0
-  #延迟限制，比如小于等于160ms
-  rttLimit: 160
+  #速度限制（MB/s），比如大于等于1.5
+  speedLimit: 1.5
   #域名，必需项
   domain: example.com
   #dnspod令牌，必需项
