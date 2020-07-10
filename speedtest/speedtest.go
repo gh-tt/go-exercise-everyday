@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/spf13/viper"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
@@ -31,6 +32,7 @@ type SpeedStat struct {
 }
 
 func main() {
+	t := time.Now()
 	viper.AddConfigPath("D:\\www\\go-exercise-everyday\\speedtest")
 	viper.SetConfigType("yaml")
 	viper.SetConfigName("config")
@@ -43,16 +45,21 @@ func main() {
 	ips = readIp(ipFileDir)
 	url := "https://storage.idx0.workers.dev/Images/public-notion-06b4a73f-0d4e-4b8f-b273-77becf84a0b3.png"
 	port := "443"
+	downloadCount := viper.GetInt("maxDownloadCount")
 
 	maxGoRoutine := viper.GetInt("maxGoRoutine")
 	maxGoChan = make(chan int, maxGoRoutine)
 	for i := 0; i < len(ips); i++ {
 		maxGoChan <- 1
 		wg.Add(1)
-		go Loop(1, url, ips[i], port)
+		fmt.Println("loop i is", i)
+		go Loop(downloadCount, url, ips[i], port)
+		fmt.Println("main i", i)
+		fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 	}
 	wg.Wait()
 	resSort()
+	fmt.Println(time.Since(t))
 }
 func resSort() {
 	sort.Slice(speedStatSlice, func(i, j int) bool {
@@ -99,45 +106,54 @@ func Loop(count int, url, ip, port string) {
 	defer func() {
 		<-maxGoChan
 		wg.Done()
-		if err := recover(); err != nil {
-			fmt.Println(err)
-			return
-		}
 	}()
-
+	if count <= 0 {
+		return
+	}
 	remoteAddr := ip + ":" + port
 
-	ch := make(chan int,1)
-	lenChan := make(chan int64,1)
-	timeChan := make(chan time.Duration,1)
+	ch := make(chan int, 1)
+	lenChan := make(chan int64, 1)
+	timeChan := make(chan time.Duration, 1)
 	var l int64
 	var dur time.Duration
-	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				fmt.Println(err)
-				return
-			}
-		}()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func(c context.Context) {
 		t := time.Now()
 		for i := 0; i < count; i++ {
-			l += getRespDataSize(url, remoteAddr)
+			select {
+			case <-c.Done():
+				fmt.Println("loop exit", i)
+				return
+			default:
+				l += getRespDataSize(c, url, remoteAddr)
+			}
+			fmt.Println("********************************")
 		}
 		dur := time.Since(t)
 		lenChan <- l
 		timeChan <- dur
 		ch <- 1
-	}()
+	}(ctx)
 	select {
 	case <-ch:
 		l = <-lenChan
 		dur = <-timeChan
-		fmt.Println(l,dur,"size and dur")
-	case <-time.After(10 * time.Second):
+		fmt.Println(l, dur, "size and dur")
+		fmt.Println("-----------------------------------------------")
+	case <-time.After(5 * time.Second):
 		fmt.Println("time out")
+		cancel()
 		return
 	}
+	size, useTime, speed := generateData(l, dur)
 
+	mu.Lock()
+	speedStatSlice = append(speedStatSlice, SpeedStat{Ip: ip, Size: size, UseTime: useTime, Speed: speed})
+	mu.Unlock()
+}
+
+func generateData(l int64, dur time.Duration) (float64, float64, float64) {
 	size := float64(l) / (1024 * 1024)
 	str := fmt.Sprintf("%.2f", size)
 	size, _ = strconv.ParseFloat(str, 64)
@@ -149,30 +165,15 @@ func Loop(count int, url, ip, port string) {
 	speed := float64(l) / (1024 * 1024) * 1e9 / float64(dur)
 	str = fmt.Sprintf("%.2f", speed)
 	speed, _ = strconv.ParseFloat(str, 64)
-
-	mu.Lock()
-	speedStatSlice = append(speedStatSlice, SpeedStat{Ip: ip, Size: size, UseTime: useTime, Speed: speed})
-	mu.Unlock()
+	return size, useTime, speed
 }
 
-func getRespDataSize(url, remoteAddr string) int64 {
-
-	resp, err := httpGet(url, remoteAddr)
+func getRespDataSize(ctx context.Context, url, remoteAddr string) int64 {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
+		fmt.Println("req err: ", err)
 		return 0
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return 0
-	}
-	return int64(len(body))
-}
-
-//url 请求的URL,例如：https://www.baidu.com/123/img.png
-// remoteAddr 请求的远程服务器地址，例如:192.168.1.1:443
-func httpGet(url, remoteAddr string) (*http.Response, error) {
-	req, _ := http.NewRequest("GET", url, nil)
 	client := &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(c context.Context, network, addr string) (net.Conn, error) {
@@ -183,5 +184,48 @@ func httpGet(url, remoteAddr string) (*http.Response, error) {
 		},
 	}
 	req.Header.Set("User-Agent", "golang-client")
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("resp err: ", err)
+		return 0
+	}
+	defer resp.Body.Close()
+	var length int64
+	buf := make([]byte, 1024)
+	for {
+		n, err := resp.Body.Read(buf)
+		if err != nil && err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Println(" read resp err :", err)
+			return 0
+		}
+		length += int64(n)
+	}
+	/*body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(" read resp err :", err)
+		return 0
+	}
+	fmt.Println(len(body))
+	return int64(len(body))*/
+	fmt.Println(length)
+	return length
+}
+
+//url 请求的URL,例如：https://www.baidu.com/123/img.png
+// remoteAddr 请求的远程服务器地址，例如:192.168.1.1:443
+func httpGet(ctx context.Context, url, remoteAddr string) (*http.Response, error) {
+	req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(c context.Context, network, addr string) (net.Conn, error) {
+				add, _ := net.ResolveTCPAddr("tcp", remoteAddr)
+				conn, err := net.DialTCP("tcp", nil, add)
+				return conn, err
+			},
+		},
+	}
+	req.Header.Set("User-Agent", "go-http")
 	return client.Do(req)
 }
