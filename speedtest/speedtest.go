@@ -36,6 +36,8 @@ type SpeedStat struct {
 
 func main() {
 	t := time.Now()
+	viper.AddConfigPath("./")
+	viper.AddConfigPath("/data/gotools/speedtest/")
 	viper.AddConfigPath("D:\\www\\go-exercise-everyday\\speedtest")
 	viper.AddConfigPath("D:\\go-project\\go-exercise-everyday\\speedtest")
 	viper.SetConfigType("yaml")
@@ -44,7 +46,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	url := viper.GetString("downloadUrl")
+	downloadUrl := viper.GetString("downloadUrl")
 	port := viper.GetString("downloadPort")
 	ipFileDir := viper.GetString("ipFileDir")
 
@@ -54,7 +56,7 @@ func main() {
 	if len(ips) < 1 {
 		return
 	}
-	timeout := setTimeout(url, ips[0], port, minSpeed) * downloadCount
+	timeout := setTimeout(downloadUrl, ips[0], port, minSpeed) * downloadCount
 	if timeout > 180 {
 		timeout = 180
 	}
@@ -66,7 +68,7 @@ func main() {
 		maxGoChan <- 1
 		wg.Add(1)
 		fmt.Println("loop i is", i)
-		go Loop(downloadCount, url, ips[i], port, timeout)
+		go Loop(downloadCount, downloadUrl, ips[i], port, timeout)
 		fmt.Println("main i", i)
 		fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 	}
