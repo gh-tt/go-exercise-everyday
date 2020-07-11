@@ -213,6 +213,7 @@ func getRespDataSize(ctx context.Context, url, remoteAddr string) int64 {
 				conn, err := net.DialTCP("tcp", nil, add)
 				return conn, err
 			},
+			DisableKeepAlives: true,
 		},
 	}
 	req.Header.Set("User-Agent", "golang-client")
@@ -256,6 +257,7 @@ func httpGet(ctx context.Context, url, remoteAddr string) (*http.Response, error
 				conn, err := net.DialTCP("tcp", nil, add)
 				return conn, err
 			},
+			DisableKeepAlives: true,
 		},
 	}
 	req.Header.Set("User-Agent", "go-http")
@@ -266,11 +268,11 @@ func modifyDnsAndWrite() {
 	if len(speedStatSlice) == 0 {
 		return
 	}
-	if !viper.GetBool("dns.modifyEnable") {
+	modifyDNsEnable := viper.GetBool("dns.modifyEnable")
+	if !modifyDNsEnable {
 		fmt.Println("do not need modify dns")
-		return
 	}
-	if len(speedStatSlice) > 0 {
+	if len(speedStatSlice) > 0 && modifyDNsEnable {
 		ip := speedStatSlice[0].Ip
 
 		data := make(url.Values)
