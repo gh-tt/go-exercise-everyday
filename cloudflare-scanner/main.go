@@ -19,11 +19,14 @@ func main() {
 		go pingGoroutine(&wg, &mu, ip, Conf.pingCount, &data, pingRoutine)
 	}
 	wg.Wait()
+
+	data = filterIpData(data)
 	sort.Slice(data, func(i, j int) bool {
 		if data[i].getRecvRate() != data[j].getRecvRate() {
 			return data[i].getRecvRate() > data[j].getRecvRate()
 		}
 		return data[i].pingTime < data[j].pingTime
 	})
-	fmt.Println(data)
+
+	fmt.Println(data, len(data))
 }

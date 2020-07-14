@@ -41,6 +41,15 @@ func ExportTxt(filepath string, data []CloudflareIPData) {
 	}
 }
 
+func filterIpData(data []CloudflareIPData) (res []CloudflareIPData) {
+	for _, v := range data {
+		if v.getRecvRate(); v.pingTime < 200 && v.recvRate >= 90 {
+			res = append(res, v)
+		}
+	}
+	return
+}
+
 func loadIp() []string {
 	buf, err := ioutil.ReadFile(Conf.ipFilePath)
 	if err != nil {
