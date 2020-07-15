@@ -18,6 +18,8 @@ downloadUrl: https://storage.idx0.workers.dev/Images/public-notion-06b4a73f-0d4e
 rttLimit: 200
 #筛选ip 最小ping收包率限制（默认0，0<=该值<=100）
 recvRateLimit: 90
+#是否输出前5个ip数据到txt文件
+isOutputTxt: false
 
 #修改dnspod所需配置
 dns:

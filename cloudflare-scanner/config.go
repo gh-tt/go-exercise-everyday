@@ -16,6 +16,7 @@ type Config struct {
 	downloadUrl        string
 	rttLimit           float64
 	recvRateLimit      float64
+	isOutputTxt        bool
 }
 
 type DnsConfig struct {
@@ -90,6 +91,7 @@ func newConfig() *Config {
 		downloadUrl:        downloadUrl,
 		rttLimit:           rttLimit,
 		recvRateLimit:      recvRateLimit,
+		isOutputTxt:        viper.GetBool("isOutputTxt"),
 	}
 }
 func newDnsConfig() *DnsConfig {

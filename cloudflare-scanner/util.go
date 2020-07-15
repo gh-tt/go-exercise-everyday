@@ -57,10 +57,14 @@ func ExportTxt(filepath string, data []CloudflareIPData) {
 		data = data[:5]
 	}
 	exportData := convertExportData(data)
-	txt, _ := os.OpenFile(filepath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModeAppend)
-	defer txt.Close()
 	t := time.Now()
 	str := fmt.Sprintln(exportData, "   ---   ", t.Format("2006-01-02 15:04:05"))
+	if !Conf.isOutputTxt {
+		fmt.Println(str)
+		return
+	}
+	txt, _ := os.OpenFile(filepath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, os.ModeAppend)
+	defer txt.Close()
 	n, err := txt.WriteString(str)
 	if n != len(str) {
 		panic(err)
@@ -118,7 +122,7 @@ func sortBySpeedAndModifyDns(data []CloudflareIPData) {
 		return data[i].downloadSpeed > data[j].downloadSpeed
 	})
 	if !DnsConf.modifyEnable {
-		fmt.Println("do not need modify dns")
+		fmt.Println("不需要修改dns")
 		return
 	}
 
@@ -134,8 +138,8 @@ func sortBySpeedAndModifyDns(data []CloudflareIPData) {
 
 	if data[0].downloadSpeed >= DnsConf.speedLimit {
 		_, _ = http.PostForm("https://dnsapi.cn/Record.Modify", form)
-		fmt.Println("modifyDns success")
+		fmt.Println("修改dns成功")
 	} else {
-		fmt.Println("ip 不符合要求,修改dns失败")
+		fmt.Println("ip不符合要求,修改dns失败:",ip)
 	}
 }

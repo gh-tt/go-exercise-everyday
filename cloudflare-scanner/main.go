@@ -33,9 +33,10 @@ func main() {
 		go speedGoRoutine(&wg, &mu, Conf.downloadUrl, data[i].ip, Conf.downloadSecond, &data[i], speedTestRoutine)
 	}
 	wg.Wait()
-	fmt.Println("测试延迟和速度用时：",time.Since(t))
+	fmt.Println("测试延迟和速度用时:",time.Since(t))
 	sortBySpeedAndModifyDns(data[:speedTestIpCount])
 	//fmt.Println(data[:speedTestIpCount])
 	//fmt.Println(len(data[:speedTestIpCount]))
 	ExportTxt("./result.txt", data)
+	fmt.Println("*****************************************************")
 }
