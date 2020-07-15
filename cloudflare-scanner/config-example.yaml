@@ -1,27 +1,29 @@
 #存放待ping的ip 文件地址 绝对路径.
 ipFileDir: D:\www\go-exercise-everyday\cloudflare-scanner\sjc-ip.txt
 #每个ip段选择的ip数量 如从111.111.111.X这个ip段中随机选择10个ip，该项必须，不能为0且小于等于255
-selectCountEveryIp: 2
-#最大协程数，防止开启过多协程影响测试结果，100M宽带最好设置最大不超过10个
-pingRoutine: 50
-#ping次数
-pingCount: 20
-#最小期望速度（单位MB/s），该项为设置请求超时时间所需，目前该项必须设置为大于等于1的浮点数
-minSpeed: 1.5
-#对测试资源循环下载次数，越大可能测试结果越准确，过大影响测试时间，最好设置为10一下的数字
-downloadTestCount: 5
-#对测试资源循环下载次数，越大可能测试结果越准确，过大影响测试时间，最好设置为10一下的数字
-downloadSecond: 5
-#测试资源url，该资源缓存在cf上，几M到十几M资源最好
+selectCountEveryIp: 1
+#ping测试最大协程数(默认100，数字越大越快，但可能影响结果准确性)
+pingRoutine: 200
+#每个ip ping次数(默认10)
+pingCount: 10
+#下载测试最大协程数(默认1，数字越大可能影响测试结果)
+downloadRoutine: 3
+#需下载测试的ip节点个数(默认10)
+downloadTestCount: 1
+#下载测试时间(默认10,单位为秒)
+downloadSecond: 10
+#测试资源url，该资源需缓存在cloudflare上
 downloadUrl: https://storage.idx0.workers.dev/Images/public-notion-06b4a73f-0d4e-4b8f-b273-77becf84a0b3.png
-#测试资源下载端口,https链接该项设置为443，其他根据实际设置为80或其他
-downloadPort: 443
+#筛选ip 最大ping延迟限制（默认200，单位ms）
+rttLimit: 200
+#筛选ip 最小ping收包率限制（默认0，0<=该值<=100）
+recvRateLimit: 90
 
 #修改dnspod所需配置
 dns:
   #是否需要修改dns，bool类型
   modifyEnable: true
-  #速度限制（MB/s），比如大于等于1.5
+  #筛选ip 最小速度限制（默认0，单位MB/s）
   speedLimit: 1.5
   #域名，必需项
   domain: example.com

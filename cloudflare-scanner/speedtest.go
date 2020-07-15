@@ -85,7 +85,7 @@ func pingGoroutine(wg *sync.WaitGroup, mutex *sync.Mutex, ip string, pingCount i
 }
 
 //bool : can download,float32 downloadSpeed
-func DownloadHandler(ctx context.Context, url, ip string, lenChan chan int64) (bool, int64) {
+func DownloadHandler(ctx context.Context, url, ip string, downloadDataSize *int64) (bool, int64) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return false, 0
@@ -93,14 +93,13 @@ func DownloadHandler(ctx context.Context, url, ip string, lenChan chan int64) (b
 	client := &http.Client{
 		Transport: &http.Transport{
 			DialContext: func(c context.Context, network, addr string) (net.Conn, error) {
-				add, _ := net.ResolveTCPAddr("tcp", ip+":"+"443")
-				conn, err := net.DialTCP("tcp", nil, add)
+				conn, err := (&net.Dialer{}).DialContext(c, network, ip+":443")
 				return conn, err
 			},
 			DisableKeepAlives: true,
 		},
 	}
-	req.Header.Set("User-Agent", "golang-client")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko")
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, 0
@@ -108,15 +107,18 @@ func DownloadHandler(ctx context.Context, url, ip string, lenChan chan int64) (b
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 200 {
-		buf := make([]byte, 1024)
+		buf := make([]byte, 4096)
 		for {
 			n, err := resp.Body.Read(buf)
 			if err != nil && err == io.EOF {
+				*downloadDataSize += int64(n)
+				//fmt.Println("resp eof err :",err,n)
 				break
 			} else if err != nil {
+				//fmt.Println("resp err :",err)
 				return false, 0
 			}
-			lenChan <- int64(n)
+			*downloadDataSize += int64(n)
 		}
 		return true, 0
 	} else {
@@ -124,7 +126,7 @@ func DownloadHandler(ctx context.Context, url, ip string, lenChan chan int64) (b
 	}
 }
 
-func speedGoRoutine(wg *sync.WaitGroup, mutex *sync.Mutex, url string, ip string, downSecond int, data *[]CloudflareIPData, downloadRoutine chan bool) {
+func speedGoRoutine(wg *sync.WaitGroup, mutex *sync.Mutex, url, ip string, downSecond int, data *CloudflareIPData, downloadRoutine chan bool) {
 	defer func() {
 		<-downloadRoutine
 		wg.Done()
@@ -133,29 +135,22 @@ func speedGoRoutine(wg *sync.WaitGroup, mutex *sync.Mutex, url string, ip string
 	ctx, cancel := context.WithDeadline(context.Background(), d)
 	defer cancel()
 	var downloadDataSize int64
-	lenChan := make(chan int64, 1024)
-	go func() {
-		for {
-			select {
-			case tmp := <-lenChan:
-				downloadDataSize += tmp
-			case <-ctx.Done():
-				return
-			}
-		}
-
-	}()
+	//t := time.Now()
+	//i := 0
 Loop:
 	for {
 		select {
 		case <-ctx.Done():
 			break Loop
 		default:
-			DownloadHandler(ctx, url, ip, lenChan)
+			//i++
+			//fmt.Println("第i次下载：",i)
+			DownloadHandler(ctx, url, ip, &downloadDataSize)
 		}
 	}
-
+	//fmt.Println("download time", time.Since(t),float64(downloadDataSize) / 1024 / 1024)
 	speed := float64(downloadDataSize) / 1024 / 1024 / float64(downSecond)
 	mutex.Lock()
-
+	data.downloadSpeed = speed
+	mutex.Unlock()
 }
