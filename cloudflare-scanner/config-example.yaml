@@ -1,5 +1,5 @@
-#存放待ping的ip 文件地址 绝对路径.
-ipFileDir: D:\www\go-exercise-everyday\cloudflare-scanner\sjc-ip.txt
+#存放待ping的ip 文件名称（默认为当前文件夹下ip.txt）.
+ipFilename: ip.txt
 #每个ip段选择的ip数量 如从111.111.111.X这个ip段中随机选择10个ip，该项必须，不能为0且小于等于255
 selectCountEveryIp: 1
 #ping测试最大协程数(默认100，数字越大越快，但可能影响结果准确性)

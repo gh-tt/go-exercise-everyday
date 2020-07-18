@@ -7,7 +7,7 @@ import (
 
 type Config struct {
 	selectCountEveryIp int
-	ipFilePath         string
+	ipFilename         string
 	pingRoutine        int
 	pingCount          int
 	speedTestCount     int
@@ -34,10 +34,7 @@ var Conf *Config
 var DnsConf *DnsConfig
 
 func initConfig() {
-	viper.AddConfigPath("./")
-	viper.AddConfigPath("/data/gotools/cloudflare-scanner/")
-	viper.AddConfigPath("D:\\www\\go-exercise-everyday\\cloudflare-scanner")
-	viper.AddConfigPath("D:\\go-project\\go-exercise-everyday\\cloudflare-scanner")
+	viper.AddConfigPath(".")
 	viper.SetConfigType("yaml")
 	viper.SetConfigName("config")
 	if err := viper.ReadInConfig(); err != nil {
@@ -79,10 +76,14 @@ func newConfig() *Config {
 	if recvRateLimit <= 0 || recvRateLimit > 100 {
 		recvRateLimit = 0
 	}
+	ipFilename :=viper.GetString("ipFilename")
+	if ipFilename=="" {
+		ipFilename = "ip.txt"
+	}
 
 	return &Config{
 		selectCountEveryIp: viper.GetInt("selectCountEveryIp"),
-		ipFilePath:         viper.GetString("ipFileDir"),
+		ipFilename:         ipFilename,
 		pingRoutine:        pingRoutine,
 		pingCount:          pingCount,
 		speedTestCount:     speedTestCount,

@@ -87,7 +87,7 @@ func filterIpData(data []CloudflareIPData) (res []CloudflareIPData) {
 }
 
 func loadIp() []string {
-	buf, err := ioutil.ReadFile(Conf.ipFilePath)
+	buf, err := ioutil.ReadFile(Conf.ipFilename)
 	if err != nil {
 		fmt.Println("read ip file err", err)
 		panic(err)
