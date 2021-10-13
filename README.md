@@ -1,3 +1,1 @@
 # go-exercise-everyday
-
-test
