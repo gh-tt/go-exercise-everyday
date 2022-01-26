@@ -14,12 +14,12 @@ import (
 )
 
 const (
-	APPPackageName = "com.starsharks.game"
-	ClassName      = "com.unity3d.player.SharkWarrior"
+	APPPackageName = "com.game.game"
+	ClassName      = "com.game.start"
 )
 
 var AdbPath = `D:\BaiduNetdiskDownload\QtScrcpy-win-x64-v1.7.1/adb.exe`
-var EmulatorPath = `D:\programs\leidian\LDPlayer4`
+var EmulatorPath = ``
 
 //var AdbPath = "./adb.exe"
 
@@ -122,9 +122,14 @@ type Emulator struct {
 	Index    int
 	TopHwnd  int
 	BindHwnd int
+
+	Status       string
+	JingjiCount  int
+	MaoxianCount int
+	checked      bool
 }
 
-func GetEmulatorList() ([]Emulator, error) {
+func GetEmulatorList() ([]*Emulator, error) {
 	cmd := newCmd(path.Join(EmulatorPath, "ldconsole.exe"), "list2")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -143,7 +148,7 @@ func GetEmulatorList() ([]Emulator, error) {
 		return nil, err
 	}
 
-	var emulatorList []Emulator
+	var emulatorList []*Emulator
 	list := strings.Split(uStr, "\r\n")
 	for i := range list {
 		tmp := strings.Split(list[i], ",")
@@ -152,7 +157,7 @@ func GetEmulatorList() ([]Emulator, error) {
 			emulator.Index, _ = strconv.Atoi(tmp[0])
 			emulator.TopHwnd, _ = strconv.Atoi(tmp[2])
 			emulator.BindHwnd, _ = strconv.Atoi(tmp[3])
-			emulatorList = append(emulatorList, emulator)
+			emulatorList = append(emulatorList, &emulator)
 		}
 	}
 	return emulatorList, nil
@@ -209,7 +214,7 @@ func (e *Emulator) MouseDrag(x1, y1, x2, y2, delay int) {
 	win.SendMessage(win.HWND(e.BindHwnd), win.WM_LBUTTONUP, 0, uintptr(x2+(y2<<16)))*/
 
 	win.SendMessage(win.HWND(e.BindHwnd), win.WM_LBUTTONDOWN, 0, uintptr(x1+(y1<<16)))
-	TimeSleepMilli(delay + 500)
+	TimeSleepMilli(delay + 700)
 	win.SendMessage(win.HWND(e.BindHwnd), win.WM_MOUSEMOVE, 0, uintptr(x2+(y2<<16)))
 	TimeSleepMilli(delay)
 	win.SendMessage(win.HWND(e.BindHwnd), win.WM_LBUTTONUP, 0, 0)
